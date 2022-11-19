@@ -7,7 +7,7 @@ import shutil
 from datetime import datetime
 
 import numpy as np
-import torch
+# import Torch
 import torch.backends.cudnn as cudnn
 import torch.multiprocessing as mp
 import torch.nn as nn
@@ -17,7 +17,7 @@ import torch.optim as optim
 import torch.utils.data
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
+# from tqdm import tqdm
 
 from model_nerv import CustomDataSet, Generator
 from utils import *

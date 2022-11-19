@@ -6,8 +6,9 @@ import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import Dataset
 
+
 class CustomDataSet(Dataset):
-    def __init__(self, main_dir, transform, vid_list=[None], frame_gap=1,  visualize=False):
+    def __init__(self, main_dir, transform, vid_list=[None], frame_gap=1, visualize=False):
         self.main_dir = main_dir
         self.transform = transform
         frame_idx, self.frame_path = [], []
@@ -15,13 +16,13 @@ class CustomDataSet(Dataset):
         all_imgs = os.listdir(main_dir)
         all_imgs.sort()
 
-        num_frame = 0 
+        num_frame = 0
         for img_id in all_imgs:
             self.frame_path.append(img_id)
             frame_idx.append(num_frame)
-            num_frame += 1          
+            num_frame += 1
 
-        # import pdb; pdb.set_trace; from IPython import embed; embed()
+            # import pdb; pdb.set_trace; from IPython import embed; embed()
         accum_img_num.append(num_frame)
         self.frame_idx = [float(x) / len(frame_idx) for x in frame_idx]
         self.accum_img_num = np.asfarray(accum_img_num)
@@ -39,10 +40,11 @@ class CustomDataSet(Dataset):
         image = Image.open(img_name).convert("RGB")
         tensor_image = self.transform(image)
         if tensor_image.size(1) > tensor_image.size(2):
-            tensor_image = tensor_image.permute(0,2,1)
+            tensor_image = tensor_image.permute(0, 2, 1)
         frame_idx = torch.tensor(self.frame_idx[valid_idx])
 
         return tensor_image, frame_idx
+
 
 class Sin(nn.Module):
     def __init__(self, inplace: bool = False):
@@ -77,7 +79,7 @@ def ActivationLayer(act_type):
     return act_layer
 
 
-def NormLayer(norm_type, ch_width):    
+def NormLayer(norm_type, ch_width):
     if norm_type == 'none':
         norm_layer = nn.Identity()
     elif norm_type == 'bn':
@@ -104,7 +106,7 @@ class CustomConv(nn.Module):
             self.up_scale = nn.Identity()
         elif self.conv_type == 'bilinear':
             self.conv = nn.Upsample(scale_factor=stride, mode='bilinear', align_corners=True)
-            self.up_scale = nn.Conv2d(ngf, new_ngf, 2*stride+1, 1, stride, bias=kargs['bias'])
+            self.up_scale = nn.Conv2d(ngf, new_ngf, 2 * stride + 1, 1, stride, bias=kargs['bias'])
 
     def forward(self, x):
         out = self.conv(x)
@@ -115,7 +117,7 @@ def MLP(dim_list, act='relu', bias=True):
     act_fn = ActivationLayer(act)
     fc_list = []
     for i in range(len(dim_list) - 1):
-        fc_list += [nn.Linear(dim_list[i], dim_list[i+1], bias=bias), act_fn]
+        fc_list += [nn.Linear(dim_list[i], dim_list[i + 1], bias=bias), act_fn]
     return nn.Sequential(*fc_list)
 
 
@@ -123,8 +125,8 @@ class NeRVBlock(nn.Module):
     def __init__(self, **kargs):
         super().__init__()
 
-        self.conv = CustomConv(ngf=kargs['ngf'], new_ngf=kargs['new_ngf'], stride=kargs['stride'], bias=kargs['bias'], 
-            conv_type=kargs['conv_type'])
+        self.conv = CustomConv(ngf=kargs['ngf'], new_ngf=kargs['new_ngf'], stride=kargs['stride'], bias=kargs['bias'],
+                               conv_type=kargs['conv_type'])
         self.norm = NormLayer(kargs['norm'], kargs['new_ngf'])
         self.act = ActivationLayer(kargs['act'])
 
@@ -138,9 +140,9 @@ class Generator(nn.Module):
 
         stem_dim, stem_num = [int(x) for x in kargs['stem_dim_num'].split('_')]
         self.fc_h, self.fc_w, self.fc_dim = [int(x) for x in kargs['fc_hw_dim'].split('_')]
-        mlp_dim_list = [kargs['embed_length']] + [stem_dim] * stem_num + [self.fc_h *self.fc_w *self.fc_dim]
+        mlp_dim_list = [kargs['embed_length']] + [stem_dim] * stem_num + [self.fc_h * self.fc_w * self.fc_dim]
         self.stem = MLP(dim_list=mlp_dim_list, act=kargs['act'])
-        
+
         # BUILD CONV LAYERS
         self.layers, self.head_layers = [nn.ModuleList() for _ in range(2)]
         ngf = self.fc_dim
@@ -154,14 +156,15 @@ class Generator(nn.Module):
 
             for j in range(kargs['num_blocks']):
                 self.layers.append(NeRVBlock(ngf=ngf, new_ngf=new_ngf, stride=1 if j else stride,
-                    bias=kargs['bias'], norm=kargs['norm'], act=kargs['act'], conv_type=kargs['conv_type']))
+                                             bias=kargs['bias'], norm=kargs['norm'], act=kargs['act'],
+                                             conv_type=kargs['conv_type']))
                 ngf = new_ngf
 
             # build head classifier, upscale feature layer, upscale img layer 
             head_layer = [None]
             if kargs['sin_res']:
                 if i == len(kargs['stride_list']) - 1:
-                    head_layer = nn.Conv2d(ngf, 3, 1, 1, bias=kargs['bias']) 
+                    head_layer = nn.Conv2d(ngf, 3, 1, 1, bias=kargs['bias'])
                     # head_layer = nn.Conv2d(ngf, 3, 3, 1, 1, bias=kargs['bias']) 
                 else:
                     head_layer = None
@@ -169,7 +172,7 @@ class Generator(nn.Module):
                 head_layer = nn.Conv2d(ngf, 3, 1, 1, bias=kargs['bias'])
                 # head_layer = nn.Conv2d(ngf, 3, 3, 1, 1, bias=kargs['bias'])
             self.head_layers.append(head_layer)
-        self.sigmoid =kargs['sigmoid']
+        self.sigmoid = kargs['sigmoid']
 
     def forward(self, input):
         output = self.stem(input)
@@ -177,12 +180,11 @@ class Generator(nn.Module):
 
         out_list = []
         for layer, head_layer in zip(self.layers, self.head_layers):
-            output = layer(output) 
+            output = layer(output)
             if head_layer is not None:
                 img_out = head_layer(output)
                 # normalize the final output iwth sigmoid or tanh function
                 img_out = torch.sigmoid(img_out) if self.sigmoid else (torch.tanh(img_out) + 1) * 0.5
                 out_list.append(img_out)
 
-        return  out_list
-
+        return out_list
